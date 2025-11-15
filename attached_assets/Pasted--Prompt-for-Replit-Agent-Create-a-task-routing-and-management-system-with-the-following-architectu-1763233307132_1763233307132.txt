@@ -1,0 +1,78 @@
+
+Prompt for Replit Agent:
+"Create a task routing and management system with the following architecture:
+Core System:
+
+Build a web application that receives tasks from customer agents (via API endpoints)
+Each task comes in with a description and dollar amount ($) they are willing to pay.
+The task details should include information about what to do and where to do it
+Implement an x402 API integration for receiving tasks, using the Coinbase x402 client NPM package.
+Use vector database (like Pinecone, Weaviate, or Supabase Vector) to match incoming tasks to the most appropriate 'meat robot' (human worker
+You can also use a spatial database to do geolocation.
+
+Task Matching Logic:
+
+Store task descriptions and worker capabilities/skills in a vector database
+When a new task arrives, perform semantic similarity search to find the best matching available worker
+Consider task requirements, worker availability, and historical performance
+
+Worker Management:
+
+Support multiple 'Human Meat Robot' workers (Telegram bot slaves)
+There is a Telegram bot that is the communication channel for the workers.
+Each worker will sign up and register a Telegram handle, and provide capabilities and skills.
+Each worker connects via Telegram bot
+Workers can receive task assignments through Telegram
+Ping multiple potential workers; first to accept gets the job. This is a bidding mechanism.
+Workers complete the job and document it by submitting photos and geolocation to our Telegram bot
+
+Task Evidence Verification (IMPORTANT):
+
+When worker submits evidence via Telegram, it creates a file reference. 
+Use Anthropic Agent SDK to verify task completion
+The AI agent should analyze:
+
+Uploaded photo(s) from the worker
+Geolocation data from Telegram
+Original task requirements
+
+
+Agent determines if the task was completed correctly based on visual evidence and location
+Agent provides verification decision: approved, rejected, or needs manual review
+Store verification results and agent's reasoning in database
+If the agent determines the task was successful, the app must pay the Worker via Stripe, in fiat.
+
+Workflow:
+
+Workers sign up by messaging a telegram bot, and register a receiving account with Stripe.
+Customer agents submit tasks (API endpoint with task description + payment amount)
+System stores task and uses vector DB to find best matching available workers
+Task is sent to all matching workers via Telegram
+First worker to accept gets the job
+Accepting worker receives notification and task details on Telegram
+Worker completes task and submits photos + shares location through Telegram bot
+System uploads photos to Google Cloud Storage
+Anthropic Agent SDK analyzes photos and geolocation against task requirements
+Agent verifies completion and provides decision
+System provides a Fiat payment to worker via Stripe.
+System updates task status based on verification
+
+Technical Requirements:
+
+RESTful API for task submission with x402 payment
+Vector database integration for intelligent task-to-worker matching
+Telegram Bot API integration for worker communication
+Telegram file storage for submitted evidence.
+Anthropic Agent SDK integration for AI-powered task verification
+Database for storing tasks, workers, assignments, evidence, and verification results
+Admin dashboard to monitor tasks, workers, and verification decisions
+Handle task states: pending, assigned, in-progress, submitted, verified, approved, rejected
+
+Dependencies to include:
+
+@anthropic-ai/sdk (for AI agent)
+node-telegram-bot-api or similar
+x402 npm package, using CDP facilitator
+Vector DB client library
+
+Please set up the basic structure with placeholder integrations, and make it easy to configure API keys for x402, vector DB, Telegram bot, Google Cloud Storage, and Anthropic API."
