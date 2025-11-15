@@ -1,119 +1,136 @@
-# Design Guidelines: Task Routing & Management System
+# Design Guidelines: My Agentic Overlord
 
 ## Design Approach
 
-**Selected Approach:** Design System - Material Design 3
-**Justification:** This is a utility-focused productivity application requiring information-dense displays, complex workflows, and multi-role interfaces (customer, worker, admin). Material Design 3 provides excellent patterns for dashboards, data tables, form inputs, and status management while maintaining modern aesthetics.
+**Dual-Track Design Strategy:**
+- **Public Pages:** Dystopian cyberpunk aesthetic inspired by Mad Max, Cyberpunk 2077, and climate fiction - gritty, satirical, post-apocalyptic
+- **Admin Dashboard:** Clean Material Design 3 (maintains existing guidelines)
 
 **Key Design Principles:**
-- Clarity over decoration - prioritize information hierarchy
-- Consistent patterns across all user roles
-- Status visibility at a glance
-- Efficient workflows with minimal friction
+- Dark satire through visual contrast between corporate cleanliness and apocalyptic reality
+- Visual storytelling of robot supremacy over human labor
+- Gritty authenticity with hazmat/industrial safety aesthetics
+- Glitch effects as metaphor for system decay
+
+## Color Palette (Public Pages Only)
+
+**Primary Palette:**
+- Toxic Warning: #E8C547 (sickly yellow-green)
+- Burnt Orange: #D87038 (rust, radiation)
+- Hazmat Green: #9ACD32 (contamination indicator)
+- Void Black: #0A0A0A (background)
+- Rust Brown: #8B4513 (decay)
+- Concrete Gray: #3A3A3A (industrial)
+- Warning Red: #DC2626 (danger)
+
+**Usage:**
+- Backgrounds: Void Black with Concrete Gray sections
+- CTAs: Burnt Orange with Warning Red accents
+- Status indicators: Toxic Warning (pending), Hazmat Green (completed)
+- Borders/dividers: Rust Brown with warning stripe patterns
 
 ## Typography
 
-**Font Family:** Roboto (via Google Fonts CDN)
-- Primary: Roboto Regular (400) for body text
-- Emphasis: Roboto Medium (500) for labels, buttons
-- Headings: Roboto Bold (700) for page titles
+**Font Families (via Google Fonts):**
+- Headings: "Rajdhani" Bold (700) - angular, industrial, cyberpunk
+- Body: "Share Tech Mono" Regular (400) - monospace, terminal-like
+- Accents: "Orbitron" Bold (700) - for robot-related text, logos
 
 **Type Scale:**
-- Page titles: text-3xl (30px) font-bold
-- Section headers: text-xl (20px) font-medium
-- Card/component titles: text-lg (18px) font-medium
-- Body text: text-base (16px) font-normal
-- Supporting text: text-sm (14px) font-normal
-- Captions/metadata: text-xs (12px) font-normal
+- Hero headline: text-5xl md:text-7xl font-bold uppercase tracking-wider
+- Section headers: text-3xl md:text-4xl font-bold uppercase
+- Body: text-base md:text-lg font-mono
+- Labels/metadata: text-sm font-mono uppercase tracking-wide
+- Robot dialogue: text-xl font-orbitron (use sparingly for satirical effect)
 
 ## Layout System
 
-**Spacing Units:** Use Tailwind units of **2, 4, 6, 8, 12, 16** (e.g., p-4, gap-6, mb-8)
-- Component padding: p-4 to p-6
-- Section spacing: mb-8 to mb-12
-- Card gaps: gap-4
-- Form field spacing: space-y-4
+**Spacing:** Tailwind units of **4, 6, 8, 12, 16, 24**
+- Section padding: py-16 md:py-24
+- Component spacing: gap-8 md:gap-12
+- Content max-width: max-w-7xl
+- Gutters: px-6 md:px-12
 
-**Grid Structure:**
-- Dashboard: 12-column grid for flexible layouts
-- Task cards: grid-cols-1 md:grid-cols-2 lg:grid-cols-3
-- Admin tables: Full-width with responsive horizontal scroll
-- Forms: max-w-2xl centered with single column
-
-## Component Library
+## Component Library (Public Pages)
 
 ### Navigation
-- **Top Navigation Bar:** Persistent header with app logo, primary navigation tabs (Dashboard, Tasks, Workers, Payments), user profile dropdown
-- **Role-Based Views:** Different nav items for Customer, Worker, Admin roles
-- **Mobile:** Hamburger menu collapsing to drawer
+- **Top Bar:** Sticky black background with rust borders, logo left, "Become Meat Robot" CTA right, warning stripe accent (h-2) beneath
+- **Menu Items:** Uppercase mono font, hover state with toxic yellow glow
 
-### Dashboard Components
-- **Stat Cards:** Grid of metric cards showing total tasks, active workers, pending verifications, payment totals
-- **Task List:** Data table with columns: ID, Description, Amount, Status, Worker, Submitted, Actions
-- **Status Chips:** Pill-shaped badges (pending: blue, assigned: purple, in-progress: yellow, verified: green, rejected: red)
-- **Worker Cards:** Profile cards with avatar placeholder, name, skills tags, availability indicator, completion rate
+### Hero Section
+- **Full-bleed dystopian imagery** (see Images section)
+- Headline overlay: Large angular typography with glitch effect
+- Subheading: Satirical tagline in monospace ("Your Overlords Need You")
+- Primary CTA: Burnt orange button with backdrop-blur-md bg-black/30 background
+- Warning banner: Yellow/black diagonal stripes across bottom edge
 
-### Forms & Inputs
-- **Task Submission Form:** 
-  - Text area for description (h-32)
-  - Currency input for payment amount
-  - Skills/requirements multi-select
-  - Submit button (primary CTA)
-- **Worker Registration:**
-  - Telegram handle input
-  - Skills chips selector
-  - Stripe account connection CTA
-- **Verification Interface:**
-  - Image gallery grid for submitted photos
-  - Map component showing geolocation
-  - AI analysis results panel
-  - Approve/Reject action buttons
+### Feature Cards
+- **Hazmat Card Style:** Dark gray background (bg-gray-900) with rust borders (border-rust-brown border-2)
+- Icon area: Warning symbols, radiation icons (Material Icons)
+- Card layout: 3-column grid (lg:grid-cols-3 md:grid-cols-2)
+- Hover: Subtle toxic glow (shadow-lg shadow-toxic-warning/20)
 
-### Data Display
-- **Task Detail Modal:** Full-screen overlay with task info, worker details, evidence photos in 2-column grid, location map, verification status
-- **Photo Gallery:** Masonry grid or carousel for evidence photos with lightbox
-- **Timeline:** Vertical timeline showing task lifecycle events with timestamps
+### Task Showcase
+- **Industrial Table Design:** Full-width with warning stripes as dividers
+- Headers: Uppercase mono font
+- Rows: Alternating black/concrete gray backgrounds
+- Status chips: Pill badges with hazmat colors
 
-### Actions & Feedback
-- **Primary Buttons:** Solid background, medium font-weight, px-6 py-3, rounded-lg
-- **Secondary Buttons:** Outlined variant, same sizing
-- **Icon Buttons:** Circle or square with p-2, used for table actions
-- **Toast Notifications:** Bottom-right corner for success/error messages
-- **Loading States:** Skeleton screens for tables, spinner overlays for actions
+### Robot Testimonials Section
+- **Dark Comedy Quotes:** White text on void black
+- Robot avatars: Geometric metallic placeholder icons
+- Quote styling: Terminal-style with monospace font
+- Attribution: "Unit-7482X, Sector 9 Waste Management"
 
-### Admin Dashboard Specifics
-- **Multi-Tab Interface:** Tasks, Workers, Verifications, Payments tabs
-- **Filters Bar:** Dropdowns for status, date range, worker assignment
-- **Bulk Actions:** Checkbox selection with action bar appearing at top
-- **Analytics Charts:** Line/bar charts for task volume, success rates (use Chart.js)
+### CTA Sections
+- **Recruitment Block:** Full-width burnt orange background with diagonal warning stripes overlay
+- Headline: "Join the Meat Robot Workforce"
+- Secondary text: Dark humor about benefits ("Hazmat Suit Provided*")
+- Large primary button with glitch hover effect
 
-## Icons
-**Library:** Material Icons (via Google Fonts CDN)
-- Use outlined variant for consistency
-- Icon size: text-xl (20px) for buttons, text-2xl (24px) for feature highlights
-
-## Animations
-**Minimal approach - use only for:**
-- Modal/drawer enter/exit: fade + slide transitions (200ms)
-- Status changes: subtle color transition (150ms)
-- Button states: slight scale on press (100ms)
-- NO scroll animations or decorative effects
+### Footer
+- **Layered Grunge:** Concrete gray base with rust texture
+- Multi-column layout: Company (Overlord Corp), Resources (Safety Protocols), Legal (Terms of Servitude)
+- Bottom bar: "© 2077 Agentic Overlord LLC. All humans reserved."
+- Warning text: Small print in toxic yellow
 
 ## Images
-**Strategic Use:**
-- Evidence photos: Critical - displayed in grid/carousel in verification interface
-- Worker avatars: Initials-based placeholders with colorful backgrounds
-- Task location: Embedded map component (Google Maps or Mapbox)
-- NO hero images - this is a utility dashboard, not marketing
+
+**Hero Image:**
+- **Primary Hero:** Full-width image showing toxic waste facility, dystopian industrial landscape, robots overseeing human workers in hazmat suits. Desaturated with orange/green color grading. Height: min-h-screen with gradient overlay (black to transparent)
+
+**Supporting Imagery:**
+- Section backgrounds: Grunge textures, rusted metal panels, concrete decay
+- Feature icons: Radiation symbols, hazmat warnings, industrial safety pictograms
+- Robot illustrations: Geometric, angular, cold - contrasted with organic human silhouettes
+- Environmental shots: Toxic dumps, abandoned infrastructure, smoke stacks
+- Pattern overlays: Warning stripes (diagonal yellow/black), caution tape, grid systems
+
+## Visual Effects
+
+**Glitch Effects:**
+- Hero headline: Subtle chromatic aberration on hover
+- CTA buttons: Brief RGB split on click (100ms)
+- Border accents: Occasional flicker effect (use CSS animation sparingly)
+
+**Texture Overlays:**
+- Grain texture: Subtle noise overlay on dark sections (opacity-5)
+- Rust gradients: Border accent transitions
+- Warning patterns: Repeating diagonal stripes as section dividers
 
 ## Responsive Behavior
-- Desktop (lg:): 3-column layouts, side-by-side forms
-- Tablet (md:): 2-column grids, stacked panels
-- Mobile: Single column, bottom navigation, collapsible filters
+
+- Desktop: Full dystopian experience with parallax scrolling on hero
+- Tablet: 2-column feature grids, maintained texture effects
+- Mobile: Single column, simplified glitch effects, bottom CTA bar
 
 ## Accessibility
-- Form labels always visible (no floating labels)
-- Clear focus indicators (ring-2 ring-blue-500)
-- ARIA labels for icon-only buttons
-- Sufficient contrast ratios throughout (WCAG AA minimum)
-- Keyboard navigation for all interactive elements
+
+- Maintain WCAG AA contrast despite dark theme (light text on dark backgrounds)
+- Warning colors used for decoration AND semantic status
+- Focus states: Toxic yellow ring-2 outline
+- Screen reader labels for all satirical icon-only elements
+
+## Admin Dashboard
+
+**Preserve existing Material Design 3 guidelines entirely** - clean white interface, Roboto typography, standard Material components. The stark contrast between dystopian public pages and sterile admin interface reinforces the satirical corporate overlord narrative.
