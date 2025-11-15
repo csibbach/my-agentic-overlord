@@ -74,7 +74,14 @@ Respond ONLY with valid JSON in this exact format:
       throw new Error("Unexpected response type from AI");
     }
 
-    const result = JSON.parse(content.text);
+    // Strip markdown code blocks if present (Claude sometimes wraps JSON in ```json ... ```)
+    let jsonText = content.text.trim();
+    const codeBlockMatch = jsonText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1].trim();
+    }
+
+    const result = JSON.parse(jsonText);
 
     return {
       decision: result.decision,
