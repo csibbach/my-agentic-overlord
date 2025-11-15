@@ -81,6 +81,13 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        task: {
+          pending: "217 78% 48%",
+          assigned: "280 65% 48%",
+          progress: "28 82% 48%",
+          verified: "142 68% 38%",
+          rejected: "0 84% 42%",
+        },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],
