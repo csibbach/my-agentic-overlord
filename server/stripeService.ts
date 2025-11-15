@@ -22,6 +22,10 @@ export async function createWorkerStripeAccount(
   }
 
   try {
+    const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+      ? `https://${process.env.REPLIT_DEV_DOMAIN.replace(/^https?:\/\//, '')}`
+      : "http://localhost:5000";
+
     const account = await stripe.accounts.create({
       type: "express",
       country: "US",
@@ -36,8 +40,8 @@ export async function createWorkerStripeAccount(
 
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
-      refresh_url: `${process.env.REPLIT_DEV_DOMAIN || "http://localhost:5000"}/api/stripe/refresh`,
-      return_url: `${process.env.REPLIT_DEV_DOMAIN || "http://localhost:5000"}/api/stripe/return`,
+      refresh_url: `${baseUrl}/api/stripe/refresh`,
+      return_url: `${baseUrl}/api/stripe/return`,
       type: "account_onboarding",
     });
 
@@ -76,10 +80,14 @@ export async function createOnboardingLink(accountId: string): Promise<string> {
     throw new Error("Stripe not configured");
   }
 
+  const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+    ? `https://${process.env.REPLIT_DEV_DOMAIN.replace(/^https?:\/\//, '')}`
+    : "http://localhost:5000";
+
   const accountLink = await stripe.accountLinks.create({
     account: accountId,
-    refresh_url: `${process.env.REPLIT_DEV_DOMAIN || "http://localhost:5000"}/api/stripe/refresh`,
-    return_url: `${process.env.REPLIT_DEV_DOMAIN || "http://localhost:5000"}/api/stripe/return`,
+    refresh_url: `${baseUrl}/api/stripe/refresh`,
+    return_url: `${baseUrl}/api/stripe/return`,
     type: "account_onboarding",
   });
 
