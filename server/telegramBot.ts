@@ -3,6 +3,7 @@ import TelegramBot from "node-telegram-bot-api";
 import { storage } from "./storage";
 import { randomUUID } from "crypto";
 import axios from "axios";
+import sharp from "sharp";
 
 const TELEGRAM_ENABLED = !!process.env.TELEGRAM_BOT_TOKEN;
 
@@ -196,10 +197,21 @@ export function initializeTelegramBot() {
         return;
       }
 
-      // Download the photo as base64
+      // Download the photo
       const photoUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
       const response = await axios.get(photoUrl, { responseType: 'arraybuffer' });
-      const base64Image = Buffer.from(response.data).toString('base64');
+      
+      // Process image: resize to max 1568px and compress to JPEG 85% quality
+      // This optimizes for Anthropic's API requirements while maintaining good quality
+      const processedImage = await sharp(Buffer.from(response.data))
+        .resize(1568, 1568, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      
+      const base64Image = processedImage.toString('base64');
 
       // Check if existing evidence is for a different task - if so, reset it
       const existingEvidence = pendingEvidence.get(chatId.toString());
