@@ -71,10 +71,7 @@ export default function Dashboard() {
 
   const updateSettingMutation = useMutation({
     mutationFn: async ({ key, value }: { key: string; value: string }) => {
-      return await apiRequest("/api/settings", {
-        method: "POST",
-        body: JSON.stringify({ key, value }),
-      });
+      return await apiRequest("POST", "/api/settings", { key, value });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
