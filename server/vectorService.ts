@@ -13,7 +13,7 @@ const openai = VECTOR_ENABLED
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
   : null;
 
-const INDEX_NAME = "task-worker-matching";
+const INDEX_NAME = "my-agentic-overlord";
 
 async function getEmbedding(text: string): Promise<number[]> {
   if (!openai) {
