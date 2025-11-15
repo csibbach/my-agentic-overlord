@@ -2,6 +2,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import { storage } from "./storage";
 import { randomUUID } from "crypto";
+import axios from "axios";
 
 const TELEGRAM_ENABLED = !!process.env.TELEGRAM_BOT_TOKEN;
 
@@ -15,7 +16,16 @@ interface PendingTaskAcceptance {
   expiresAt: number;
 }
 
+interface EvidenceSubmission {
+  workerId: string;
+  taskId: string;
+  photoBase64Images: string[];
+  latitude: string | null;
+  longitude: string | null;
+}
+
 const pendingAcceptances = new Map<string, PendingTaskAcceptance>();
+const pendingEvidence = new Map<string, EvidenceSubmission>(); // Key: chatId
 
 export function initializeTelegramBot() {
   if (!TELEGRAM_ENABLED || !bot) {
@@ -122,10 +132,11 @@ export function initializeTelegramBot() {
           await bot.sendMessage(
             chatId,
             `🎉 You've been assigned the task!\n\n` +
-              `Submit evidence by:\n` +
-              `1. Sending photos of completed work\n` +
-              `2. Sharing your location\n\n` +
-              `Reply to this message with your evidence.`
+              `📸 To submit evidence:\n` +
+              `1. Send photos of completed work\n` +
+              `2. (Optional) Share your location\n` +
+              `3. Use /submit when ready\n\n` +
+              `The AI will verify your work and process payment automatically.`
           );
         } else {
           await bot.answerCallbackQuery(query.id, {
@@ -147,11 +158,223 @@ export function initializeTelegramBot() {
   });
 
   bot.on("photo", async (msg) => {
-    console.log("Photo received from worker");
+    const chatId = msg.chat.id;
+    console.log(`Photo received from worker (chat: ${chatId})`);
+    
+    try {
+      // Find worker by chat ID
+      const workers = await storage.getAllWorkers();
+      const worker = workers.find(w => w.telegramChatId === chatId.toString());
+      
+      if (!worker) {
+        await bot.sendMessage(chatId, "❌ You must register first. Use /register @username skills");
+        return;
+      }
+
+      // Find active task for this worker
+      const tasks = await storage.getAllTasks();
+      const activeTask = tasks.find(t => 
+        t.assignedWorkerId === worker.id && 
+        (t.status === "assigned" || t.status === "in_progress")
+      );
+
+      if (!activeTask) {
+        await bot.sendMessage(chatId, "❌ No active task found. Accept a task first.");
+        return;
+      }
+
+      // Get the largest photo size (highest resolution)
+      const photo = msg.photo![msg.photo!.length - 1];
+      const fileId = photo.file_id;
+
+      // Download photo from Telegram
+      const file = await bot.getFile(fileId);
+      const filePath = file.file_path;
+      
+      if (!filePath) {
+        await bot.sendMessage(chatId, "❌ Failed to download photo. Please try again.");
+        return;
+      }
+
+      // Download the photo as base64
+      const photoUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
+      const response = await axios.get(photoUrl, { responseType: 'arraybuffer' });
+      const base64Image = Buffer.from(response.data).toString('base64');
+
+      // Check if existing evidence is for a different task - if so, reset it
+      const existingEvidence = pendingEvidence.get(chatId.toString());
+      if (existingEvidence && existingEvidence.taskId !== activeTask.id) {
+        console.log(`Worker ${worker.id} started new task ${activeTask.id}, clearing old evidence for task ${existingEvidence.taskId}`);
+        await bot.sendMessage(
+          chatId,
+          `⚠️ You have a new active task. Previous evidence cleared.\n\n` +
+            `Starting fresh evidence collection for current task.`
+        );
+        pendingEvidence.delete(chatId.toString());
+      }
+
+      // Initialize or update evidence submission
+      const currentEvidence = pendingEvidence.get(chatId.toString());
+      if (currentEvidence) {
+        currentEvidence.photoBase64Images.push(base64Image);
+      } else {
+        pendingEvidence.set(chatId.toString(), {
+          workerId: worker.id,
+          taskId: activeTask.id,
+          photoBase64Images: [base64Image],
+          latitude: null,
+          longitude: null,
+        });
+      }
+
+      await bot.sendMessage(
+        chatId,
+        `✅ Photo received! (${pendingEvidence.get(chatId.toString())!.photoBase64Images.length} total)\n\n` +
+          `Send more photos, share your location, or use /submit to complete the task.`
+      );
+
+    } catch (error) {
+      console.error("Error processing photo:", error);
+      await bot.sendMessage(chatId, "❌ Error processing photo. Please try again.");
+    }
   });
 
   bot.on("location", async (msg) => {
-    console.log("Location received from worker");
+    const chatId = msg.chat.id;
+    console.log(`Location received from worker (chat: ${chatId})`);
+    
+    try {
+      // Find worker by chat ID
+      const workers = await storage.getAllWorkers();
+      const worker = workers.find(w => w.telegramChatId === chatId.toString());
+      
+      if (!worker) {
+        await bot.sendMessage(chatId, "❌ You must register first. Use /register @username skills");
+        return;
+      }
+
+      // Find active task for this worker
+      const tasks = await storage.getAllTasks();
+      const activeTask = tasks.find(t => 
+        t.assignedWorkerId === worker.id && 
+        (t.status === "assigned" || t.status === "in_progress")
+      );
+
+      if (!activeTask) {
+        await bot.sendMessage(chatId, "❌ No active task found. Accept a task first.");
+        return;
+      }
+
+      const latitude = msg.location!.latitude.toString();
+      const longitude = msg.location!.longitude.toString();
+
+      // Check if existing evidence is for a different task - if so, reset it
+      const existingEvidence = pendingEvidence.get(chatId.toString());
+      if (existingEvidence && existingEvidence.taskId !== activeTask.id) {
+        console.log(`Worker ${worker.id} started new task ${activeTask.id}, clearing old evidence for task ${existingEvidence.taskId}`);
+        await bot.sendMessage(
+          chatId,
+          `⚠️ You have a new active task. Previous evidence cleared.\n\n` +
+            `Location saved for current task.`
+        );
+        pendingEvidence.delete(chatId.toString());
+      }
+
+      // Initialize or update evidence submission with location
+      const currentEvidence = pendingEvidence.get(chatId.toString());
+      if (currentEvidence) {
+        currentEvidence.latitude = latitude;
+        currentEvidence.longitude = longitude;
+      } else {
+        pendingEvidence.set(chatId.toString(), {
+          workerId: worker.id,
+          taskId: activeTask.id,
+          photoBase64Images: [],
+          latitude: latitude,
+          longitude: longitude,
+        });
+      }
+
+      console.log(`Location saved for worker task ${activeTask.id}: ${latitude}, ${longitude}`);
+
+      await bot.sendMessage(
+        chatId,
+        `📍 Location received!\n\n` +
+          `Latitude: ${latitude}\n` +
+          `Longitude: ${longitude}\n\n` +
+          `Send photos and use /submit when ready.`
+      );
+
+    } catch (error) {
+      console.error("Error processing location:", error);
+      await bot.sendMessage(chatId, "❌ Error processing location. Please try again.");
+    }
+  });
+
+  bot.onText(/\/submit/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    try {
+      const evidence = pendingEvidence.get(chatId.toString());
+      
+      if (!evidence || evidence.photoBase64Images.length === 0) {
+        await bot.sendMessage(
+          chatId,
+          "❌ No photos to submit. Send photos first, then use /submit."
+        );
+        return;
+      }
+
+      await bot.sendMessage(chatId, "⏳ Submitting evidence for AI verification...");
+
+      // Submit evidence to the API
+      const apiUrl = `http://localhost:5000/api/tasks/${evidence.taskId}/evidence`;
+      const response = await axios.post(apiUrl, {
+        workerId: evidence.workerId,
+        photoBase64Images: evidence.photoBase64Images,
+        latitude: evidence.latitude,
+        longitude: evidence.longitude,
+      });
+
+      // Clear pending evidence
+      pendingEvidence.delete(chatId.toString());
+
+      const verification = response.data.verification;
+      
+      if (verification.decision === "approved") {
+        await bot.sendMessage(
+          chatId,
+          `✅ Task Approved!\n\n` +
+            `${verification.reasoning}\n\n` +
+            `💰 Payment is being processed to your Stripe account.`
+        );
+      } else if (verification.decision === "rejected") {
+        await bot.sendMessage(
+          chatId,
+          `❌ Task Rejected\n\n` +
+            `${verification.reasoning}\n\n` +
+            `Please review the requirements and try again.`
+        );
+      } else {
+        await bot.sendMessage(
+          chatId,
+          `⚠️ Manual Review Required\n\n` +
+            `${verification.reasoning}\n\n` +
+            `An oligarch will review your submission shortly.`
+        );
+      }
+
+    } catch (error) {
+      console.error("Error submitting evidence:", error);
+      const errorMessage = axios.isAxiosError(error) && error.response?.data?.message
+        ? error.response.data.message
+        : "Unknown error occurred";
+        
+      await bot.sendMessage(
+        chatId,
+        `❌ Submission failed: ${errorMessage}\n\nPlease try again or contact support.`
+      );
+    }
   });
 }
 
