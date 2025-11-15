@@ -35,8 +35,11 @@ export interface IStorage {
   getWorker(id: string): Promise<Worker | undefined>;
   getWorkersByIds(ids: string[]): Promise<Worker[]>;
   getWorkerByChatId(chatId: string): Promise<Worker | undefined>;
+  getWorkerByStripeAccountId(stripeAccountId: string): Promise<Worker | undefined>;
   getAllWorkers(): Promise<Worker[]>;
   updateWorkerAvailability(id: string, availability: string): Promise<void>;
+  updateWorkerStripeAccount(id: string, stripeAccountId: string): Promise<void>;
+  updateWorkerStripeOnboarding(stripeAccountId: string, chargesEnabled: boolean, payoutsEnabled: boolean): Promise<void>;
   
   createTask(task: InsertTask): Promise<Task>;
   getTask(id: string): Promise<Task | undefined>;
@@ -126,6 +129,32 @@ export class DatabaseStorage implements IStorage {
       .update(workers)
       .set({ availability, updatedAt: new Date() })
       .where(eq(workers.id, id));
+  }
+
+  async updateWorkerStripeAccount(id: string, stripeAccountId: string): Promise<void> {
+    await db
+      .update(workers)
+      .set({ stripeAccountId, updatedAt: new Date() })
+      .where(eq(workers.id, id));
+  }
+
+  async getWorkerByStripeAccountId(stripeAccountId: string): Promise<Worker | undefined> {
+    const [worker] = await db
+      .select()
+      .from(workers)
+      .where(eq(workers.stripeAccountId, stripeAccountId));
+    return worker;
+  }
+
+  async updateWorkerStripeOnboarding(stripeAccountId: string, chargesEnabled: boolean, payoutsEnabled: boolean): Promise<void> {
+    await db
+      .update(workers)
+      .set({ 
+        stripeChargesEnabled: chargesEnabled,
+        stripePayoutsEnabled: payoutsEnabled,
+        updatedAt: new Date() 
+      })
+      .where(eq(workers.stripeAccountId, stripeAccountId));
   }
 
   async createTask(insertTask: InsertTask): Promise<Task> {
@@ -392,6 +421,27 @@ class MemStorage implements IStorage {
     const worker = this.workers.get(id);
     if (worker) {
       worker.availability = availability;
+      worker.updatedAt = new Date();
+    }
+  }
+
+  async updateWorkerStripeAccount(id: string, stripeAccountId: string): Promise<void> {
+    const worker = this.workers.get(id);
+    if (worker) {
+      worker.stripeAccountId = stripeAccountId;
+      worker.updatedAt = new Date();
+    }
+  }
+
+  async getWorkerByStripeAccountId(stripeAccountId: string): Promise<Worker | undefined> {
+    return Array.from(this.workers.values()).find(w => w.stripeAccountId === stripeAccountId);
+  }
+
+  async updateWorkerStripeOnboarding(stripeAccountId: string, chargesEnabled: boolean, payoutsEnabled: boolean): Promise<void> {
+    const worker = Array.from(this.workers.values()).find(w => w.stripeAccountId === stripeAccountId);
+    if (worker) {
+      worker.stripeChargesEnabled = chargesEnabled;
+      worker.stripePayoutsEnabled = payoutsEnabled;
       worker.updatedAt = new Date();
     }
   }

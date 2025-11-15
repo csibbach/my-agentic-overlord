@@ -123,15 +123,22 @@ Preferred communication style: Simple, everyday language.
   - Facilitator: Coinbase CDP with zero fees
   - Requires EVM wallet address configuration in Oligarch dashboard
   - Middleware activated on server start when valid wallet configured
-- **Stripe**: Fiat payment processing and worker payouts
-  - Connected accounts for worker payment reception
-  - Webhook support for payment status updates
-  - Not required for basic functionality (task routing still works)
+- **Stripe Connect**: Fiat payment processing and automated worker payouts
+  - Express connected accounts automatically created during worker registration
+  - Onboarding links sent via Telegram for KYC completion
+  - Webhook handling for real-time onboarding status updates
+  - Automated transfers to workers upon task approval
+  - Payment status tracking: pending (no account/incomplete onboarding) → processing → completed/failed
+  - Not required for basic functionality (task routing still works without Stripe)
   
 **Payment Flow**:
-- Bots pay oligarch in USDC (crypto) via x402 for task submission
-- Workers receive USD (fiat) via Stripe for task completion
-- Oligarch manually converts crypto receipts to fiat for worker payouts
+1. Bots pay oligarch in USDC (crypto) via x402 for task submission ($0.001 per task)
+2. Worker registers → Stripe Express account created automatically → onboarding link sent to Telegram
+3. Worker completes Stripe onboarding → webhook updates worker's onboarding status in database
+4. Task verified as approved by AI → system checks worker's onboarding status
+5. If onboarded: Stripe Connect transfer sent to worker's account → Telegram notification
+6. If not onboarded: Payment marked as pending until onboarding complete
+7. Oligarch manually converts crypto receipts to fiat for funding worker payouts
 
 **Communication**:
 - **Telegram Bot API**: Worker interface via node-telegram-bot-api

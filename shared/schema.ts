@@ -44,6 +44,8 @@ export const workers = pgTable("workers", {
   skills: text("skills").array().notNull().default(sql`ARRAY[]::text[]`),
   availability: varchar("availability", { length: 20 }).notNull().default("available"), // available, busy, offline
   stripeAccountId: varchar("stripe_account_id"),
+  stripeChargesEnabled: boolean("stripe_charges_enabled").default(false),
+  stripePayoutsEnabled: boolean("stripe_payouts_enabled").default(false),
   rating: decimal("rating", { precision: 3, scale: 2 }).default("0.00"),
   completedTasks: integer("completed_tasks").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),

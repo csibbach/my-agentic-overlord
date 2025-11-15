@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { initializeTelegramBot, notifyWorkersAboutTask, notifyWorkerPaymentComplete, getBotUsername } from "./telegramBot";
 import { initializeVectorIndex, addWorkerToVectorDB, findMatchingWorkers } from "./vectorService";
 import { verifyTaskEvidence } from "./anthropicService";
+import { payWorker, isStripeEnabled as checkStripeEnabled } from "./stripeService";
 import { insertTaskSchema, insertWorkerSchema } from "@shared/schema";
 import express from "express";
 import { setupAuth, isAuthenticated } from "./replitAuth";
@@ -15,10 +16,54 @@ const STRIPE_ENABLED = !!process.env.STRIPE_SECRET_KEY;
 const X402_ENABLED = !!process.env.CDP_API_KEY_ID && !!process.env.CDP_API_KEY_SECRET;
 
 const stripe = STRIPE_ENABLED
-  ? new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-10-29.clover" })
+  ? new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2023-10-16" })
   : null;
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+    if (!STRIPE_ENABLED || !stripe) {
+      return res.status(400).json({ message: "Stripe not configured" });
+    }
+
+    const sig = req.headers["stripe-signature"];
+    if (!sig) {
+      return res.status(400).json({ message: "No signature" });
+    }
+
+    try {
+      const event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET || ""
+      );
+
+      if (event.type === "account.updated") {
+        const account = event.data.object as Stripe.Account;
+        console.log(`Stripe account updated: ${account.id}, charges_enabled: ${account.charges_enabled}, payouts_enabled: ${account.payouts_enabled}`);
+        
+        try {
+          await storage.updateWorkerStripeOnboarding(
+            account.id,
+            account.charges_enabled || false,
+            account.payouts_enabled || false
+          );
+          
+          if (account.charges_enabled && account.payouts_enabled) {
+            const workerId = account.metadata?.workerId;
+            console.log(`Worker ${workerId} account ${account.id} is fully verified and ready for payments`);
+          }
+        } catch (err) {
+          console.error("Error updating worker onboarding status:", err);
+        }
+      }
+
+      res.json({ received: true });
+    } catch (err) {
+      console.error("Webhook signature verification failed:", err);
+      return res.status(400).json({ message: "Webhook signature verification failed" });
+    }
+  });
+
   app.use(express.json({ limit: "50mb" }));
 
   await setupAuth(app);
@@ -321,22 +366,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: "processing",
         });
 
-        if (STRIPE_ENABLED && stripe) {
+        if (checkStripeEnabled()) {
           try {
-            const paymentIntent = await stripe.paymentIntents.create({
-              amount: Math.round(parseFloat(task.paymentAmount) * 100),
-              currency: "usd",
-              description: `Payment for task ${taskId}`,
-              metadata: {
-                taskId,
-                workerId,
-                paymentId: payment.id,
-              },
-            });
+            const worker = await storage.getWorker(workerId);
+            
+            if (!worker) {
+              throw new Error("Worker not found");
+            }
 
-            await storage.updatePaymentStatus(payment.id, "completed", paymentIntent.id);
+            if (!worker.stripeAccountId) {
+              console.log(`Worker ${workerId} has no Stripe account - marking payment as pending`);
+              await storage.updatePaymentStatus(payment.id, "pending");
+              return;
+            }
 
+            if (!worker.stripeChargesEnabled || !worker.stripePayoutsEnabled) {
+              console.log(`Worker ${workerId} Stripe account not fully onboarded - marking payment as pending`);
+              await storage.updatePaymentStatus(payment.id, "pending");
+              return;
+            }
+
+            const transferId = await payWorker(
+              worker.stripeAccountId,
+              parseFloat(task.paymentAmount),
+              taskId,
+              task.description
+            );
+
+            await storage.updatePaymentStatus(payment.id, "completed", transferId);
             await notifyWorkerPaymentComplete(workerId, taskId, task.paymentAmount);
+            
+            console.log(`Payment ${transferId} completed for worker ${workerId}`);
           } catch (stripeError) {
             console.error("Stripe payment error:", stripeError);
             await storage.updatePaymentStatus(payment.id, "failed");
@@ -344,6 +404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           console.log("Stripe disabled - payment marked as completed without processing");
           await storage.updatePaymentStatus(payment.id, "completed", "simulated-payment-id");
+          await notifyWorkerPaymentComplete(workerId, taskId, task.paymentAmount);
         }
       } else if (verificationResult.decision === "rejected") {
         await storage.updateTaskStatus(taskId, "rejected");
@@ -382,6 +443,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: error instanceof Error ? error.message : "Failed to register worker" 
       });
     }
+  });
+
+
+  app.get("/api/stripe/refresh", async (req, res) => {
+    res.send(`
+      <html>
+        <body>
+          <h1>Stripe Onboarding Link Expired</h1>
+          <p>Your onboarding link has expired. Please contact the oligarch to get a new link.</p>
+        </body>
+      </html>
+    `);
+  });
+
+  app.get("/api/stripe/return", async (req, res) => {
+    res.send(`
+      <html>
+        <body>
+          <h1>Stripe Onboarding Complete</h1>
+          <p>Thank you for completing your payment account setup!</p>
+          <p>You can now close this window and return to Telegram to start receiving task notifications.</p>
+        </body>
+      </html>
+    `);
   });
 
   const httpServer = createServer(app);

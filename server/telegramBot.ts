@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { randomUUID } from "crypto";
 import axios from "axios";
 import sharp from "sharp";
+import { createWorkerStripeAccount, isStripeEnabled } from "./stripeService";
 
 const TELEGRAM_ENABLED = !!process.env.TELEGRAM_BOT_TOKEN;
 
@@ -71,14 +72,46 @@ export function initializeTelegramBot() {
         availability: "available",
       });
 
-      await bot.sendMessage(
-        chatId,
-        `✅ Registration successful!\n\n` +
-          `Username: @${username}\n` +
-          `Skills: ${skills.join(", ")}\n` +
-          `Worker ID: ${worker.id}\n\n` +
-          `You'll receive task notifications here. Link your Stripe account with /linkstripe to receive payments.`
-      );
+      let registrationMessage = `✅ Registration successful!\n\n` +
+        `Username: @${username}\n` +
+        `Skills: ${skills.join(", ")}\n` +
+        `Worker ID: ${worker.id}\n\n`;
+
+      if (isStripeEnabled()) {
+        await bot.sendMessage(chatId, registrationMessage + `⏳ Setting up your payment account...`);
+        
+        try {
+          const stripeResult = await createWorkerStripeAccount(worker.id, username);
+          
+          if (stripeResult) {
+            await storage.updateWorkerStripeAccount(worker.id, stripeResult.accountId);
+            
+            await bot.sendMessage(
+              chatId,
+              `💳 Payment Account Setup\n\n` +
+                `To receive payments, you need to complete your Stripe account setup.\n\n` +
+                `Click here to get started:\n${stripeResult.onboardingUrl}\n\n` +
+                `⚠️ This link expires in a few minutes. If it expires, contact the oligarch.\n\n` +
+                `After completing setup, you'll be able to receive payments for completed tasks!`
+            );
+          } else {
+            await bot.sendMessage(
+              chatId,
+              `You're registered! You'll receive task notifications here.`
+            );
+          }
+        } catch (stripeError) {
+          console.error("Error creating Stripe account:", stripeError);
+          await bot.sendMessage(
+            chatId,
+            `⚠️ Payment account setup failed. Contact the oligarch to set up payments.\n\n` +
+              `You can still accept and complete tasks, but payments will need manual processing.`
+          );
+        }
+      } else {
+        registrationMessage += `You'll receive task notifications here. (Stripe payments not configured)`;
+        await bot.sendMessage(chatId, registrationMessage);
+      }
     } catch (error) {
       console.error("Error registering worker:", error);
       await bot.sendMessage(
