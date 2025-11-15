@@ -5,6 +5,7 @@ import {
   taskEvidence,
   verifications,
   payments,
+  users,
   type Worker,
   type InsertWorker,
   type Task,
@@ -17,11 +18,16 @@ import {
   type InsertVerification,
   type Payment,
   type InsertPayment,
+  type User,
+  type UpsertUser,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  
   createWorker(worker: InsertWorker): Promise<Worker>;
   getWorker(id: string): Promise<Worker | undefined>;
   getWorkersByIds(ids: string[]): Promise<Worker[]>;
@@ -65,6 +71,26 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
   async createWorker(insertWorker: InsertWorker): Promise<Worker> {
     const [worker] = await db.insert(workers).values(insertWorker).returning();
     return worker;
@@ -273,6 +299,7 @@ export class DatabaseStorage implements IStorage {
 }
 
 class MemStorage implements IStorage {
+  private users: Map<string, User> = new Map();
   private workers: Map<string, Worker> = new Map();
   private tasks: Map<string, Task> = new Map();
   private taskAssignments: Map<string, TaskAssignment[]> = new Map();
@@ -280,10 +307,33 @@ class MemStorage implements IStorage {
   private verifications: Verification[] = [];
   private payments: Payment[] = [];
 
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const existing = this.users.get(userData.id || "");
+    const user: User = {
+      id: userData.id || crypto.randomUUID(),
+      email: userData.email ?? null,
+      firstName: userData.firstName ?? null,
+      lastName: userData.lastName ?? null,
+      profileImageUrl: userData.profileImageUrl ?? null,
+      createdAt: existing?.createdAt || new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(user.id, user);
+    return user;
+  }
+
   async createWorker(insertWorker: InsertWorker): Promise<Worker> {
     const worker: Worker = {
       id: crypto.randomUUID(),
-      ...insertWorker,
+      telegramUsername: insertWorker.telegramUsername,
+      telegramChatId: insertWorker.telegramChatId ?? null,
+      skills: insertWorker.skills ?? [],
+      availability: insertWorker.availability ?? "available",
+      stripeAccountId: insertWorker.stripeAccountId ?? null,
       rating: "0.00",
       completedTasks: 0,
       createdAt: new Date(),
@@ -322,7 +372,11 @@ class MemStorage implements IStorage {
   async createTask(insertTask: InsertTask): Promise<Task> {
     const task: Task = {
       id: crypto.randomUUID(),
-      ...insertTask,
+      description: insertTask.description,
+      paymentAmount: insertTask.paymentAmount,
+      location: insertTask.location ?? null,
+      requirements: insertTask.requirements ?? null,
+      status: insertTask.status ?? "pending",
       assignedWorkerId: null,
       createdAt: new Date(),
       updatedAt: new Date(),

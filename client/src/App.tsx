@@ -3,18 +3,38 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
-import ApiDocs from "@/pages/api-docs";
+import Home from "@/pages/home";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { LayoutDashboard, FileText } from "lucide-react";
+import { LayoutDashboard, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 function Router() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
+
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/api-docs" component={ApiDocs} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -22,11 +42,11 @@ function Router() {
 
 function Navigation() {
   const [location] = useLocation();
+  const { isAuthenticated } = useAuth();
 
-  const navItems = [
-    { path: "/", label: "Dashboard", icon: LayoutDashboard, testId: "link-dashboard" },
-    { path: "/api-docs", label: "API Docs", icon: FileText, testId: "link-api-docs" },
-  ];
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <nav className="border-b bg-card">
@@ -36,34 +56,26 @@ function Navigation() {
             <div className="bg-primary text-primary-foreground rounded-md p-1.5">
               <LayoutDashboard className="h-5 w-5" />
             </div>
-            TaskRoute
+            My Agentic Overlord
           </Link>
           
-          <div className="flex items-center gap-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors hover-elevate active-elevate-2",
-                    isActive
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground"
-                  )}
-                  data-testid={item.testId}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              );
-            })}
+          <div className="text-sm text-muted-foreground">
+            Admin Dashboard
           </div>
         </div>
 
-        <ThemeToggle />
+        <div className="flex items-center gap-4">
+          <ThemeToggle />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.location.href = '/api/logout'}
+            data-testid="button-logout"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        </div>
       </div>
     </nav>
   );

@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 const TELEGRAM_ENABLED = !!process.env.TELEGRAM_BOT_TOKEN;
 
 const bot = TELEGRAM_ENABLED
-  ? new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true })
+  ? new TelegramBot(process.env.TELEGRAM_BOT_TOKEN!, { polling: true })
   : null;
 
 interface PendingTaskAcceptance {
@@ -235,6 +235,26 @@ export async function notifyWorkerPaymentComplete(
   } catch (error) {
     console.error(`Error notifying worker about payment:`, error);
   }
+}
+
+let cachedBotUsername: string | null = null;
+
+export function getBotUsername(): string | null {
+  if (!TELEGRAM_ENABLED || !bot) {
+    return null;
+  }
+  
+  if (cachedBotUsername) {
+    return cachedBotUsername;
+  }
+  
+  bot.getMe().then(info => {
+    cachedBotUsername = info.username || null;
+  }).catch(err => {
+    console.error("Error getting bot info:", err);
+  });
+  
+  return cachedBotUsername;
 }
 
 export { bot };

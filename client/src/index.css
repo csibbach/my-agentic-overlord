@@ -58,6 +58,15 @@
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
+  /* Dystopic theme colors for public pages */
+  --dystopic-toxic-warning: 48 79% 61%;
+  --dystopic-burnt-orange: 21 71% 52%;
+  --dystopic-hazmat-green: 76 61% 51%;
+  --dystopic-void-black: 0 0% 4%;
+  --dystopic-rust-brown: 25 44% 32%;
+  --dystopic-concrete-gray: 0 0% 23%;
+  --dystopic-warning-red: 0 72% 51%;
+
 /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);

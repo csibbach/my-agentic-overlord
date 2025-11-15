@@ -2,25 +2,55 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import Stripe from "stripe";
-import { initializeTelegramBot, notifyWorkersAboutTask, notifyWorkerPaymentComplete } from "./telegramBot";
+import { initializeTelegramBot, notifyWorkersAboutTask, notifyWorkerPaymentComplete, getBotUsername } from "./telegramBot";
 import { initializeVectorIndex, addWorkerToVectorDB, findMatchingWorkers } from "./vectorService";
 import { verifyTaskEvidence } from "./anthropicService";
 import { insertTaskSchema, insertWorkerSchema } from "@shared/schema";
 import express from "express";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 
 const STRIPE_ENABLED = !!process.env.STRIPE_SECRET_KEY;
 
 const stripe = STRIPE_ENABLED
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2023-10-16" })
+  ? new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-10-29.clover" })
   : null;
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use(express.json({ limit: "50mb" }));
 
+  await setupAuth(app);
   initializeTelegramBot();
   initializeVectorIndex();
 
-  app.get("/api/stats", async (req, res) => {
+  app.get('/api/auth/user', async (req: any, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user?.claims?.sub) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  app.get("/api/bot-info", async (req, res) => {
+    const botUsername = getBotUsername();
+    res.json({ 
+      botUsername: botUsername || null,
+      enabled: !!botUsername 
+    });
+  });
+
+  app.get("/api/stats", isAuthenticated, async (req, res) => {
     try {
       const stats = await storage.getStats();
       res.json(stats);
@@ -30,7 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tasks", async (req, res) => {
+  app.get("/api/tasks", isAuthenticated, async (req, res) => {
     try {
       const tasks = await storage.getAllTasks();
       res.json(tasks);
@@ -40,7 +70,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tasks/:id", async (req, res) => {
+  app.get("/api/tasks/:id", isAuthenticated, async (req, res) => {
     try {
       const taskDetails = await storage.getTaskDetails(req.params.id);
       if (!taskDetails) {
@@ -97,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workers", async (req, res) => {
+  app.get("/api/workers", isAuthenticated, async (req, res) => {
     try {
       const workers = await storage.getAllWorkers();
       res.json(workers);
@@ -107,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/verifications", async (req, res) => {
+  app.get("/api/verifications", isAuthenticated, async (req, res) => {
     try {
       const verifications = await storage.getAllVerifications();
       res.json(verifications);
@@ -117,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/payments", async (req, res) => {
+  app.get("/api/payments", isAuthenticated, async (req, res) => {
     try {
       const payments = await storage.getAllPayments();
       res.json(payments);
