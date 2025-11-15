@@ -6,6 +6,7 @@ import {
   verifications,
   payments,
   users,
+  settings,
   type Worker,
   type InsertWorker,
   type Task,
@@ -20,6 +21,8 @@ import {
   type InsertPayment,
   type User,
   type UpsertUser,
+  type Setting,
+  type InsertSetting,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
@@ -68,6 +71,9 @@ export interface IStorage {
     verification: Verification | null;
     payment: Payment | null;
   } | null>;
+  
+  getSetting(key: string): Promise<Setting | undefined>;
+  upsertSetting(setting: InsertSetting): Promise<Setting>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -296,6 +302,26 @@ export class DatabaseStorage implements IStorage {
       payment: payment || null,
     };
   }
+
+  async getSetting(key: string): Promise<Setting | undefined> {
+    const [setting] = await db.select().from(settings).where(eq(settings.key, key));
+    return setting;
+  }
+
+  async upsertSetting(settingData: InsertSetting): Promise<Setting> {
+    const [setting] = await db
+      .insert(settings)
+      .values(settingData)
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: {
+          value: settingData.value,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return setting;
+  }
 }
 
 class MemStorage implements IStorage {
@@ -306,6 +332,7 @@ class MemStorage implements IStorage {
   private taskEvidence: Map<string, TaskEvidence> = new Map();
   private verifications: Verification[] = [];
   private payments: Payment[] = [];
+  private settings: Map<string, Setting> = new Map();
 
   async getUser(id: string): Promise<User | undefined> {
     return this.users.get(id);
@@ -549,6 +576,22 @@ class MemStorage implements IStorage {
       verification,
       payment,
     };
+  }
+
+  async getSetting(key: string): Promise<Setting | undefined> {
+    return this.settings.get(key);
+  }
+
+  async upsertSetting(settingData: InsertSetting): Promise<Setting> {
+    const existing = this.settings.get(settingData.key);
+    const setting: Setting = {
+      id: existing?.id || crypto.randomUUID(),
+      key: settingData.key,
+      value: settingData.value ?? null,
+      updatedAt: new Date(),
+    };
+    this.settings.set(setting.key, setting);
+    return setting;
   }
 }
 

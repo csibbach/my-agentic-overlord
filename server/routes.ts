@@ -8,8 +8,11 @@ import { verifyTaskEvidence } from "./anthropicService";
 import { insertTaskSchema, insertWorkerSchema } from "@shared/schema";
 import express from "express";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { paymentMiddleware } from "x402-express";
+import { facilitator } from "@coinbase/x402";
 
 const STRIPE_ENABLED = !!process.env.STRIPE_SECRET_KEY;
+const X402_ENABLED = !!process.env.CDP_API_KEY_ID && !!process.env.CDP_API_KEY_SECRET;
 
 const stripe = STRIPE_ENABLED
   ? new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-10-29.clover" })
@@ -21,6 +24,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
   initializeTelegramBot();
   initializeVectorIndex();
+
+  // x402 payment middleware configuration
+  let x402PaymentEnabled = false;
+  if (X402_ENABLED) {
+    const receivingAddress = await storage.getSetting("x402_receiving_address");
+    const walletAddress = receivingAddress?.value;
+    
+    if (walletAddress && walletAddress !== "0x0000000000000000000000000000000000000000") {
+      console.log(`x402 payments enabled - receiving at ${walletAddress}`);
+      x402PaymentEnabled = true;
+      
+      app.use(paymentMiddleware(
+        walletAddress as `0x${string}`,
+        {
+          "POST /api/tasks/submit": {
+            price: "$0.001",
+            network: "base",
+            config: {
+              description: "Submit a task for meat robot workers",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  paymentAmount: { type: "number" },
+                  location: { type: "string" },
+                  requirements: { type: "object" }
+                },
+                required: ["description", "paymentAmount"]
+              }
+            }
+          }
+        },
+        facilitator
+      ));
+    } else {
+      console.log("x402 payments enabled - no wallet configured yet");
+    }
+  } else {
+    console.log("x402 payments disabled (no CDP API keys)");
+  }
 
   app.get('/api/auth/user', async (req: any, res) => {
     try {
@@ -85,6 +128,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tasks/submit", async (req, res) => {
     try {
+      // Check if x402 is configured before accepting tasks
+      if (X402_ENABLED) {
+        const receivingAddress = await storage.getSetting("x402_receiving_address");
+        const walletAddress = receivingAddress?.value;
+        
+        if (!walletAddress || walletAddress === "0x0000000000000000000000000000000000000000") {
+          return res.status(503).json({ 
+            message: "x402 payment system is not yet configured. Please configure a receiving wallet address in the Oligarch dashboard settings." 
+          });
+        }
+      }
+      
       const validated = insertTaskSchema.parse(req.body);
       
       const task = await storage.createTask({
@@ -154,6 +209,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching payments:", error);
       res.status(500).json({ message: "Failed to fetch payments" });
+    }
+  });
+
+  app.get("/api/settings", isAuthenticated, async (req, res) => {
+    try {
+      const x402Address = await storage.getSetting("x402_receiving_address");
+      const stripeBalance = await storage.getSetting("stripe_balance");
+      
+      res.json({
+        x402_receiving_address: x402Address?.value || null,
+        stripe_balance: stripeBalance?.value || "0.00",
+      });
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.post("/api/settings", isAuthenticated, async (req, res) => {
+    try {
+      const { key, value } = req.body;
+      
+      if (!key || typeof value !== "string") {
+        return res.status(400).json({ message: "Invalid request" });
+      }
+
+      // Validate allowed keys
+      const allowedKeys = ["x402_receiving_address", "stripe_balance"];
+      if (!allowedKeys.includes(key)) {
+        return res.status(400).json({ message: "Invalid setting key" });
+      }
+
+      // Validate wallet address format
+      if (key === "x402_receiving_address") {
+        if (!value.match(/^0x[a-fA-F0-9]{40}$/)) {
+          return res.status(400).json({ message: "Invalid EVM wallet address format" });
+        }
+      }
+
+      const setting = await storage.upsertSetting({ key, value });
+      
+      // Log when x402 address is configured for first time
+      if (key === "x402_receiving_address" && !x402PaymentEnabled) {
+        console.log(`x402 wallet address configured: ${value}`);
+        console.log("Note: Server restart required to activate x402 payment middleware");
+      }
+      
+      res.json(setting);
+    } catch (error) {
+      console.error("Error updating setting:", error);
+      res.status(500).json({ message: "Failed to update setting" });
     }
   });
 

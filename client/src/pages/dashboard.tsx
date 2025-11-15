@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   ClipboardList, 
   Users, 
@@ -20,13 +22,20 @@ import {
   Eye,
   Clock,
   MapPin,
+  Settings,
+  Wallet,
+  ExternalLink,
 } from "lucide-react";
 import { Task, Worker, Verification, Payment } from "@shared/schema";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import TaskDetailModal from "@/components/task-detail-modal";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [x402Address, setX402Address] = useState("");
+  const { toast } = useToast();
 
   const { data: stats, isLoading: statsLoading } = useQuery<{
     totalTasks: number;
@@ -52,6 +61,43 @@ export default function Dashboard() {
   const { data: payments, isLoading: paymentsLoading } = useQuery<Payment[]>({
     queryKey: ["/api/payments"],
   });
+
+  const { data: settings, isLoading: settingsLoading } = useQuery<{
+    x402_receiving_address: string | null;
+    stripe_balance: string;
+  }>({
+    queryKey: ["/api/settings"],
+  });
+
+  const updateSettingMutation = useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: string }) => {
+      return await apiRequest("/api/settings", {
+        method: "POST",
+        body: JSON.stringify({ key, value }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({
+        title: "Settings Updated",
+        description: "Your configuration has been saved successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update settings",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Initialize x402Address from settings when data loads
+  useEffect(() => {
+    if (settings?.x402_receiving_address && !x402Address) {
+      setX402Address(settings.x402_receiving_address);
+    }
+  }, [settings, x402Address]);
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { variant: any; className?: string }> = {
@@ -177,6 +223,7 @@ export default function Dashboard() {
             <TabsTrigger value="workers" data-testid="tab-workers">Workers</TabsTrigger>
             <TabsTrigger value="verifications" data-testid="tab-verifications">Verifications</TabsTrigger>
             <TabsTrigger value="payments" data-testid="tab-payments">Payments</TabsTrigger>
+            <TabsTrigger value="settings" data-testid="tab-settings">Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="space-y-4">
@@ -450,6 +497,128 @@ export default function Dashboard() {
                     No payments yet. Payments are processed after successful task verification.
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-4">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Wallet className="h-5 w-5 text-primary" />
+                    <CardTitle>x402 Payment Configuration</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Configure your EVM wallet address to receive USDC payments from bots on Base network
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {settingsLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="x402-address">EVM Wallet Address</Label>
+                        <Input
+                          id="x402-address"
+                          type="text"
+                          placeholder="0x..."
+                          value={x402Address || settings?.x402_receiving_address || ""}
+                          onChange={(e) => setX402Address(e.target.value)}
+                          data-testid="input-x402-address"
+                          className="font-mono"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Bots pay in USDC on Base. Workers receive fiat via Stripe.
+                        </p>
+                        {settings?.x402_receiving_address && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400">
+                            Note: After saving a new wallet address, restart the server to activate the x402 payment middleware.
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        onClick={() => {
+                          if (x402Address) {
+                            updateSettingMutation.mutate({
+                              key: "x402_receiving_address",
+                              value: x402Address,
+                            });
+                          }
+                        }}
+                        disabled={updateSettingMutation.isPending || !x402Address}
+                        data-testid="button-save-x402-address"
+                      >
+                        {updateSettingMutation.isPending ? "Saving..." : "Save Wallet Address"}
+                      </Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-primary" />
+                    <CardTitle>Stripe Balance</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Worker payouts are processed from your Stripe account balance
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {settingsLoading ? (
+                    <Skeleton className="h-20 w-full" />
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <div className="text-4xl font-bold text-foreground" data-testid="text-stripe-balance">
+                          ${settings?.stripe_balance || "0.00"}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Current balance available for worker payouts
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open("https://dashboard.stripe.com/balance/overview", "_blank")}
+                        data-testid="button-add-stripe-funds"
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Add Funds to Stripe
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Note: Manually convert your crypto receipts to fiat and deposit into your Stripe balance for worker payouts.
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-primary" />
+                  <CardTitle>System Information</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-sm font-medium">x402 Payments</span>
+                  <Badge variant={settings?.x402_receiving_address ? "default" : "secondary"}>
+                    {settings?.x402_receiving_address ? "Enabled" : "Not Configured"}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-sm font-medium">Payment Protocol</span>
+                  <span className="text-sm text-muted-foreground">USDC on Base (Mainnet)</span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm font-medium">Worker Payments</span>
+                  <span className="text-sm text-muted-foreground">Stripe (USD Fiat)</span>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
