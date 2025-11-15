@@ -47,10 +47,15 @@ Preferred communication style: Simple, everyday language.
    - Handles complex queries like task details with joins
 
 2. **Telegram Bot Service** (`server/telegramBot.ts`):
-   - Worker registration via `/register` command
+   - Worker registration via `/register` command with skills
    - Task notification and bidding system (first to accept wins)
-   - Evidence submission (photos + geolocation)
-   - Payment confirmation notifications
+   - Evidence submission workflow:
+     - Workers send photos → bot downloads, converts to base64, caches in memory
+     - Workers optionally share GPS location → bot saves coordinates
+     - Workers send `/submit` command → bot posts all evidence to API
+     - State management: pendingEvidence Map tracks submissions per worker
+     - Task alignment: automatically resets evidence if worker accepts new task
+   - Payment confirmation notifications via Telegram messages
 
 3. **Vector Matching Service** (`server/vectorService.ts`):
    - Semantic similarity search for task-to-worker matching
