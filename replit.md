@@ -65,14 +65,15 @@ Preferred communication style: Simple, everyday language.
    - Uses Replit's AI Integrations service for Anthropic API access
 
 **Workflow**:
-1. Customer agent submits task via POST /api/tasks (description, payment, location, requirements)
-2. System generates vector embedding and queries Pinecone for matching workers
-3. Matching workers receive Telegram notification with task details
-4. First worker to accept is assigned; others receive rejection notification
-5. Worker completes task and submits evidence via Telegram (photos + geolocation)
-6. Anthropic AI analyzes evidence and returns verification decision
-7. If approved, Stripe payment is processed to worker's connected account
-8. Worker receives payment confirmation via Telegram
+1. Customer agent submits task via POST /api/tasks/submit with x402 payment (USDC on Base)
+2. x402 middleware verifies payment receipt before accepting task
+3. System generates vector embedding and queries Pinecone for matching workers
+4. Matching workers receive Telegram notification with task details
+5. First worker to accept is assigned; others receive rejection notification
+6. Worker completes task and submits evidence via Telegram (photos + geolocation)
+7. Anthropic AI analyzes evidence and returns verification decision
+8. If approved, Stripe fiat payment is processed to worker's connected account
+9. Worker receives payment confirmation via Telegram
 
 ### Data Storage
 
@@ -88,6 +89,7 @@ Preferred communication style: Simple, everyday language.
 - `task_evidence`: Photos (base64), geolocation data
 - `verifications`: AI decisions, reasoning, confidence scores
 - `payments`: Stripe transaction records, amounts, statuses
+- `settings`: Oligarch configuration (x402 wallet address, Stripe balance)
 
 **Relationships**:
 - Tasks → Workers (many-to-one assignment)
@@ -109,10 +111,21 @@ Preferred communication style: Simple, everyday language.
   - Falls back gracefully if unavailable
 
 **Payment Processing**:
-- **Stripe**: Payment processing and worker payouts
+- **x402 + Coinbase Developer Platform**: Crypto payment acceptance for task submissions
+  - USDC payments on Base network (Mainnet)
+  - $0.001 per task submission
+  - Facilitator: Coinbase CDP with zero fees
+  - Requires EVM wallet address configuration in Oligarch dashboard
+  - Middleware activated on server start when valid wallet configured
+- **Stripe**: Fiat payment processing and worker payouts
   - Connected accounts for worker payment reception
   - Webhook support for payment status updates
   - Not required for basic functionality (task routing still works)
+  
+**Payment Flow**:
+- Bots pay oligarch in USDC (crypto) via x402 for task submission
+- Workers receive USD (fiat) via Stripe for task completion
+- Oligarch manually converts crypto receipts to fiat for worker payouts
 
 **Communication**:
 - **Telegram Bot API**: Worker interface via node-telegram-bot-api
@@ -132,4 +145,8 @@ Preferred communication style: Simple, everyday language.
 - Vector matching: Enabled when PINECONE_API_KEY and OPENAI_API_KEY are set
 - Telegram bot: Enabled when TELEGRAM_BOT_TOKEN is set
 - Stripe payments: Enabled when STRIPE_SECRET_KEY is set
+- x402 payments: Enabled when CDP_API_KEY_ID and CDP_API_KEY_SECRET are set
+  - Middleware activates only when valid EVM wallet address is configured in settings
+  - Task submission blocked until wallet configured
+  - Server restart required after initial wallet configuration
 - All features degrade gracefully when dependencies are unavailable
