@@ -5,7 +5,7 @@ import Stripe from "stripe";
 import { initializeTelegramBot, notifyWorkersAboutTask, notifyWorkerPaymentComplete, getBotUsername } from "./telegramBot";
 import { initializeVectorIndex, addWorkerToVectorDB, findMatchingWorkers } from "./vectorService";
 import { verifyTaskEvidence } from "./anthropicService";
-import { payWorker, isStripeEnabled as checkStripeEnabled } from "./stripeService";
+import { payWorker, isStripeEnabled as checkStripeEnabled, createOnboardingLink } from "./stripeService";
 import { insertTaskSchema, insertWorkerSchema } from "@shared/schema";
 import express from "express";
 import { setupAuth, isAuthenticated } from "./replitAuth";
@@ -16,7 +16,7 @@ const STRIPE_ENABLED = !!process.env.STRIPE_SECRET_KEY;
 const X402_ENABLED = !!process.env.CDP_API_KEY_ID && !!process.env.CDP_API_KEY_SECRET;
 
 const stripe = STRIPE_ENABLED
-  ? new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2023-10-16" })
+  ? new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2023-10-16" as any })
   : null;
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -89,7 +89,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             config: {
               description: "Submit a task for meat robot workers",
               inputSchema: {
-                type: "object",
                 properties: {
                   description: { type: "string" },
                   paymentAmount: { type: "number" },
@@ -100,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           }
-        },
+        } as any,
         facilitator
       ));
     } else {
@@ -447,14 +446,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   app.get("/api/stripe/refresh", async (req, res) => {
-    res.send(`
-      <html>
-        <body>
-          <h1>Stripe Onboarding Link Expired</h1>
-          <p>Your onboarding link has expired. Please contact the oligarch to get a new link.</p>
-        </body>
-      </html>
-    `);
+    try {
+      // Stripe sends the account ID as a query parameter when redirecting to refresh_url
+      const accountId = req.query.account as string;
+      
+      if (!accountId) {
+        return res.status(400).send(`
+          <html>
+            <body>
+              <h1>Error</h1>
+              <p>Missing account information. Please contact the oligarch for a new onboarding link.</p>
+            </body>
+          </html>
+        `);
+      }
+
+      // Generate a new onboarding link
+      const newLink = await createOnboardingLink(accountId);
+      
+      // Redirect to the new onboarding link
+      res.redirect(newLink);
+    } catch (error) {
+      console.error("Error refreshing Stripe onboarding link:", error);
+      res.status(500).send(`
+        <html>
+          <body>
+            <h1>Error</h1>
+            <p>Failed to generate new onboarding link. Please contact the oligarch.</p>
+          </body>
+        </html>
+      `);
+    }
   });
 
   app.get("/api/stripe/return", async (req, res) => {
