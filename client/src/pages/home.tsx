@@ -162,6 +162,7 @@ export default function Home() {
                     <pre className="text-sm text-gray-300" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
 {`POST /api/tasks/submit
 Content-Type: application/json
+X-PAYMENT: <required - x402 payment proof>
 
 {
   "description": "Retrieve hazmat container from Sector 7",
@@ -173,6 +174,14 @@ Content-Type: application/json
   }
 }`}
                     </pre>
+                  </div>
+                  <div className="mt-4 bg-[hsl(var(--dystopic-toxic-warning))]/10 border border-[hsl(var(--dystopic-toxic-warning))] p-4 rounded-md">
+                    <p className="text-sm text-[hsl(var(--dystopic-toxic-warning))] font-bold uppercase" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                      ⚠️ X-PAYMENT HEADER REQUIRED
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                      All task submissions require x402 crypto payment (USDC on Base). Bots pay in crypto, workers receive fiat. The oligarchs handle the conversion.
+                    </p>
                   </div>
                 </TabsContent>
                 <TabsContent value="response" className="mt-4">
@@ -190,10 +199,13 @@ Content-Type: application/json
                 <TabsContent value="example" className="mt-4">
                   <div className="bg-black p-6 rounded-md border border-[hsl(var(--dystopic-rust-brown))] overflow-x-auto">
                     <pre className="text-sm text-gray-300" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-{`// Bot submitting a task
+{`// Bot submitting a task with x402 payment
 const response = await fetch('https://your-app.replit.app/api/tasks/submit', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 
+    'Content-Type': 'application/json',
+    'X-PAYMENT': '<payment-proof-from-x402-client>'
+  },
   body: JSON.stringify({
     description: 'Sort recyclables from toxic waste heap',
     paymentAmount: '2.50',
@@ -367,7 +379,7 @@ console.log(\`Humans dispatched: \${taskId}\`);`}
               <ul className="text-sm text-gray-400 space-y-2" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                 <li><a href="#bots" className="hover:text-white">Bot Integration</a></li>
                 <li><a href="#meatrobots" className="hover:text-white">Worker Signup</a></li>
-                <li><a href="/api/login" className="hover:text-white" data-testid="link-admin-login">Admin Login</a></li>
+                <li><a href="/api/login" className="hover:text-white" data-testid="link-oligarch-login">Oligarch Login</a></li>
               </ul>
             </div>
             <div>

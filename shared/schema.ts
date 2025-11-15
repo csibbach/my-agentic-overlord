@@ -25,7 +25,7 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User table for Replit Auth - Admin users
+// User table for Replit Auth - Oligarch users
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
@@ -105,6 +105,14 @@ export const payments = pgTable("payments", {
   status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, processing, completed, failed
   paidAt: timestamp("paid_at"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Settings - oligarch configuration
+export const settings = pgTable("settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key").notNull().unique(),
+  value: text("value"),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Relations
@@ -206,6 +214,11 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({
   paidAt: true,
 });
 
+export const insertSettingSchema = createInsertSchema(settings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Types
 export type Worker = typeof workers.$inferSelect;
 export type InsertWorker = z.infer<typeof insertWorkerSchema>;
@@ -224,6 +237,9 @@ export type InsertVerification = z.infer<typeof insertVerificationSchema>;
 
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+
+export type Setting = typeof settings.$inferSelect;
+export type InsertSetting = z.infer<typeof insertSettingSchema>;
 
 // User types for Replit Auth
 export type UpsertUser = typeof users.$inferInsert;

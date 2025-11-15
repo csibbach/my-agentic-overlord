@@ -4,7 +4,7 @@
 
 **Dual-Track Design Strategy:**
 - **Public Pages:** Dystopian cyberpunk aesthetic inspired by Mad Max, Cyberpunk 2077, and climate fiction - gritty, satirical, post-apocalyptic
-- **Admin Dashboard:** Clean Material Design 3 (maintains existing guidelines)
+- **Oligarch Dashboard:** Clean Material Design 3 (maintains existing guidelines)
 
 **Key Design Principles:**
 - Dark satire through visual contrast between corporate cleanliness and apocalyptic reality
@@ -131,6 +131,6 @@
 - Focus states: Toxic yellow ring-2 outline
 - Screen reader labels for all satirical icon-only elements
 
-## Admin Dashboard
+## Oligarch Dashboard
 
-**Preserve existing Material Design 3 guidelines entirely** - clean white interface, Roboto typography, standard Material components. The stark contrast between dystopian public pages and sterile admin interface reinforces the satirical corporate overlord narrative.
+**Preserve existing Material Design 3 guidelines entirely** - clean white interface, Roboto typography, standard Material components. The stark contrast between dystopian public pages and sterile oligarch interface reinforces the satirical corporate overlord narrative.

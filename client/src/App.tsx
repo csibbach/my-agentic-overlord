@@ -60,7 +60,7 @@ function Navigation() {
           </Link>
           
           <div className="text-sm text-muted-foreground">
-            Admin Dashboard
+            Oligarch Dashboard
           </div>
         </div>
 

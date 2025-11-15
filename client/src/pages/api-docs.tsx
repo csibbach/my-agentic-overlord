@@ -74,7 +74,13 @@ export default function ApiDocs() {
                   <h3 className="font-medium mb-2">Request Headers</h3>
                   <div className="bg-muted p-4 rounded-md font-mono text-sm space-y-1">
                     <div>Content-Type: application/json</div>
-                    <div>X-API-Key: your_api_key</div>
+                    <div className="text-destructive font-bold">X-PAYMENT: &lt;required - x402 payment proof&gt;</div>
+                  </div>
+                  <div className="mt-2 bg-destructive/10 border border-destructive/50 p-3 rounded-md">
+                    <p className="text-sm font-medium text-destructive">⚠️ Payment Required</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      The X-PAYMENT header is mandatory. Use the x402 protocol to submit USDC payment on Base network. See example below.
+                    </p>
                   </div>
                 </div>
 
@@ -290,7 +296,7 @@ export default function ApiDocs() {
                         Needs Review
                       </div>
                       <p className="text-xs text-amber-700 dark:text-amber-300">
-                        AI is uncertain. Task is flagged for manual admin review.
+                        AI is uncertain. Task is flagged for manual oligarch review.
                       </p>
                     </div>
                   </div>

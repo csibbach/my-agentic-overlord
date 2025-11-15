@@ -83,7 +83,7 @@ export function initializeTelegramBot() {
       chatId,
       "🔗 To link your Stripe account:\n\n" +
         "1. Create a Stripe Express account at https://stripe.com\n" +
-        "2. Contact the admin with your Worker ID to link your account\n\n" +
+        "2. Contact the oligarch with your Worker ID to link your account\n\n" +
         "This will allow you to receive payments for completed tasks."
     );
   });
