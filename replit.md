@@ -50,7 +50,8 @@ Preferred communication style: Simple, everyday language.
    - Worker registration via `/register` command with skills
    - Task notification and bidding system (first to accept wins)
    - Evidence submission workflow:
-     - Workers send photos → bot downloads, converts to base64, caches in memory
+     - Workers send photos → bot downloads, resizes to max 1,568px, compresses to JPEG 85%, converts to base64, caches in memory
+     - Image processing uses sharp library for optimal Anthropic API compatibility
      - Workers optionally share GPS location → bot saves coordinates
      - Workers send `/submit` command → bot posts all evidence to API
      - State management: pendingEvidence Map tracks submissions per worker
