@@ -446,37 +446,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   app.get("/api/stripe/refresh", async (req, res) => {
-    try {
-      // Stripe sends the account ID as a query parameter when redirecting to refresh_url
-      const accountId = req.query.account as string;
-      
-      if (!accountId) {
-        return res.status(400).send(`
-          <html>
-            <body>
-              <h1>Error</h1>
-              <p>Missing account information. Please contact the oligarch for a new onboarding link.</p>
-            </body>
-          </html>
-        `);
-      }
-
-      // Generate a new onboarding link
-      const newLink = await createOnboardingLink(accountId);
-      
-      // Redirect to the new onboarding link
-      res.redirect(newLink);
-    } catch (error) {
-      console.error("Error refreshing Stripe onboarding link:", error);
-      res.status(500).send(`
-        <html>
-          <body>
-            <h1>Error</h1>
-            <p>Failed to generate new onboarding link. Please contact the oligarch.</p>
-          </body>
-        </html>
-      `);
-    }
+    res.send(`
+      <html>
+        <head>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              max-width: 600px;
+              margin: 50px auto;
+              padding: 20px;
+              background: #f5f5f5;
+            }
+            .container {
+              background: white;
+              padding: 30px;
+              border-radius: 8px;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            h1 { color: #ff6b35; margin-top: 0; }
+            .emoji { font-size: 48px; margin: 20px 0; }
+            .instruction {
+              background: #f0f0f0;
+              padding: 15px;
+              border-radius: 5px;
+              margin: 20px 0;
+              font-family: monospace;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="emoji">⏰</div>
+            <h1>Stripe Onboarding Link Expired</h1>
+            <p>Your payment setup link has expired. This is normal - Stripe links expire after a few minutes for security.</p>
+            
+            <h3>To get a fresh link:</h3>
+            <ol>
+              <li>Open Telegram</li>
+              <li>Message the TaskRoute bot</li>
+              <li>Send this command:</li>
+            </ol>
+            
+            <div class="instruction">/linkstripe</div>
+            
+            <p>You'll receive a brand new payment setup link instantly! ✨</p>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+              💡 Tip: You can use /linkstripe anytime you need a fresh link.
+            </p>
+          </div>
+        </body>
+      </html>
+    `);
   });
 
   app.get("/api/stripe/return", async (req, res) => {

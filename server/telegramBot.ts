@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { randomUUID } from "crypto";
 import axios from "axios";
 import sharp from "sharp";
-import { createWorkerStripeAccount, isStripeEnabled } from "./stripeService";
+import { createWorkerStripeAccount, isStripeEnabled, createOnboardingLink } from "./stripeService";
 
 const TELEGRAM_ENABLED = !!process.env.TELEGRAM_BOT_TOKEN;
 
@@ -91,7 +91,8 @@ export function initializeTelegramBot() {
               `💳 Payment Account Setup\n\n` +
                 `To receive payments, you need to complete your Stripe account setup.\n\n` +
                 `Click here to get started:\n${stripeResult.onboardingUrl}\n\n` +
-                `⚠️ This link expires in a few minutes. If it expires, contact the oligarch.\n\n` +
+                `⏰ This link expires in a few minutes.\n` +
+                `If it expires, just use /linkstripe to get a new one!\n\n` +
                 `After completing setup, you'll be able to receive payments for completed tasks!`
             );
           } else {
@@ -123,13 +124,56 @@ export function initializeTelegramBot() {
 
   bot.onText(/\/linkstripe/, async (msg) => {
     const chatId = msg.chat.id;
-    await bot.sendMessage(
-      chatId,
-      "🔗 To link your Stripe account:\n\n" +
-        "1. Create a Stripe Express account at https://stripe.com\n" +
-        "2. Contact the oligarch with your Worker ID to link your account\n\n" +
-        "This will allow you to receive payments for completed tasks."
-    );
+
+    if (!isStripeEnabled()) {
+      await bot.sendMessage(
+        chatId,
+        "⚠️ Payment system is not configured. Contact the oligarch."
+      );
+      return;
+    }
+
+    try {
+      // Find worker by chat ID
+      const workers = await storage.getAllWorkers();
+      const worker = workers.find(w => w.telegramChatId === chatId.toString());
+
+      if (!worker) {
+        await bot.sendMessage(
+          chatId,
+          "❌ You're not registered yet! Use /register @username skills to get started."
+        );
+        return;
+      }
+
+      if (!worker.stripeAccountId) {
+        await bot.sendMessage(
+          chatId,
+          "⚠️ No payment account found. Contact the oligarch to set up payments."
+        );
+        return;
+      }
+
+      // Generate fresh onboarding link
+      await bot.sendMessage(chatId, "⏳ Generating a fresh payment setup link...");
+      
+      const onboardingUrl = await createOnboardingLink(worker.stripeAccountId);
+      
+      await bot.sendMessage(
+        chatId,
+        `💳 Fresh Payment Setup Link\n\n` +
+          `Click here to complete your payment account setup:\n${onboardingUrl}\n\n` +
+          `⏰ This link expires in a few minutes.\n` +
+          `If it expires, just use /linkstripe again to get a new one!\n\n` +
+          `After completing setup, you'll be able to receive payments for completed tasks!`
+      );
+    } catch (error) {
+      console.error("Error generating Stripe link:", error);
+      await bot.sendMessage(
+        chatId,
+        "❌ Failed to generate payment link. Contact the oligarch for assistance."
+      );
+    }
   });
 
   bot.on("callback_query", async (query) => {
